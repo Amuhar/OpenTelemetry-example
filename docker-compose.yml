@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - 9411:9411
+  library:
+    container_name: library
+    build:
+      context: ./library
+      dockerfile: Dockerfile
+    command: elixir --sname node@library --cookie cookie -S mix run --no-halt
+    working_dir: /app
+    depends_on:
+      - zipkin
+    environment:
+      ZIPKIN_ADDRESS: http://zipkin:9411/api/v2/spans
+  librarian:
+    container_name: librarian
+    build:
+      context: ./librarian
+      dockerfile: Dockerfile
+    command: elixir --sname node@librarian --cookie cookie -S mix run --no-halt
+    working_dir: /app
+    ports:
+      - 4001:4001
+    depends_on:
+      - zipkin
+    environment:
+      ZIPKIN_ADDRESS: http://zipkin:9411/api/v2/spans
+      LIBRARY_NODE: node@library
+  reader:
+    container_name: reader
+    build:
+      context: ./reader
+      dockerfile: Dockerfile
+    command: elixir --sname node@reader --cookie cookie -S mix run --no-halt
+    working_dir: /app
+    depends_on:
+      - zipkin
+    environment:
+      ZIPKIN_ADDRESS: http://zipkin:9411/api/v2/spans
+      LIBRARIAN_URL: http://librarian
+      LIBRARIAN_PORT: 4001
